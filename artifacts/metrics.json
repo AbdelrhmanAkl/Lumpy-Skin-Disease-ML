@@ -1,0 +1,49 @@
+{
+    "model": "XGBoost",
+    "validation": {
+        "accuracy": 0.9778315195485692,
+        "f1": 0.9081803005008348
+    },
+    "test": {
+        "accuracy": 0.9814553517436001,
+        "f1": 0.9235880398671097,
+        "roc_auc": 0.9929510198653078
+    },
+    "dataset": {
+        "total_samples": 24803,
+        "train_samples": 17361,
+        "validation_samples": 2481,
+        "test_samples": 4961
+    },
+    "target_mapping": {
+        "0": "Healthy",
+        "1": "Lumpy Skin Disease"
+    },
+    "features": [
+        "x",
+        "y",
+        "cld",
+        "dtr",
+        "frs",
+        "pet",
+        "pre",
+        "tmn",
+        "tmp",
+        "tmx",
+        "vap",
+        "wet",
+        "elevation",
+        "dominant_land_cover",
+        "X5_Ct_2010_Da",
+        "X5_Bf_2010_Da"
+    ],
+    "best_xgboost_parameters": {
+        "subsample": 1.0,
+        "n_estimators": 400,
+        "min_child_weight": 1,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "gamma": 0.2,
+        "colsample_bytree": 0.9
+    }
+}

@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Python cache
+.pytest_cache/
+
+# Secrets
+.streamlit/secrets.toml
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Local datasets
+# Uncomment if you do NOT want the dataset on GitHub
+# data/*.csv
+
+# Large model backups
+*.pkl
+
+# Keep the main deployed model
+# models/lumpy_skin_model.joblib
