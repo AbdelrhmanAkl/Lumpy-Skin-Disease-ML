@@ -2,7 +2,11 @@
 
 > A professional machine learning application for binary classification of Lumpy Skin Disease (LSD) risk using environmental, geographic, and livestock-related features.
 
-[🚀 Live Demo](https://lumpy-skin-disease-ml.streamlit.app/)
+## 🚀 Live Demo
+
+👉 **[Try the Lumpy Skin Disease AI Live Demo](https://lumpy-skin-disease-ml.streamlit.app/)**
+
+The application is deployed using Streamlit and provides an interactive interface for making Lumpy Skin Disease predictions.
 
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
