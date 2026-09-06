@@ -2,10 +2,8 @@
 
 > A professional machine learning application for binary classification of Lumpy Skin Disease (LSD) risk using environmental, geographic, and livestock-related features.
 
-[🚀 Live Demo](https://lumpy-skin-disease-ml.streamlit.app/)  
-[📂 GitHub Repository](https://github.com/AbdelrhmanAkl/lumpy-skin-disease-ml)
+[🚀 Live Demo](https://lumpy-skin-disease-ml.streamlit.app/)
 
-> A professional machine learning application for binary classification of **Lumpy Skin Disease (LSD) risk** using environmental, geographic, and livestock-related features.
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-App-red.svg)](https://streamlit.io/)
@@ -396,12 +394,18 @@ Streamlit Deployment
      │
      ▼
 Live Demo
-```
+
 
 ## 🚀 Live Demo
 
 👉 **[Try the Lumpy Skin Disease AI Live Demo](https://lumpy-skin-disease-ml.streamlit.app/)**
 
-The application is deployed using Streamlit and provides real-time predictions through an interactive web interface.
+The application is deployed using Streamlit and provides an interactive interface for making Lumpy Skin Disease predictions.
 
-Likewise, replace `<YOUR_GITHUB_REPOSITORY_URL>` in the local setup section with the actual repository URL after creating the GitHub repository.
+## 📦 Local Setup
+
+Clone the repository:
+
+```bash
+git clone https://github.com/AbdelrhmanAkl/lumpy-skin-disease-ml.git
+cd lumpy-skin-disease-ml
