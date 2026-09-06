@@ -394,6 +394,7 @@ Streamlit Deployment
      │
      ▼
 Live Demo
+```
 
 
 ## 🚀 Live Demo
