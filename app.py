@@ -6,6 +6,7 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
+import pydeck as pdk
 import streamlit as st
 
 st.set_page_config(page_title="LSD Risk Studio", page_icon="🐄", layout="wide",
@@ -123,6 +124,29 @@ TXT = {
 }
 
 
+# Map labels are drawn here (not by the map provider) so names are fully controlled.
+LABELS = pd.DataFrame([
+    ("Palestine", 35.2, 31.9), ("Egypt", 30.0, 26.5), ("Libya", 17.5, 27.0), ("Sudan", 30.0, 15.5),
+    ("Saudi Arabia", 45.0, 24.0), ("Jordan", 36.7, 30.8), ("Lebanon", 35.9, 33.9), ("Syria", 38.5, 35.0),
+    ("Iraq", 43.5, 33.0), ("Cyprus", 33.2, 35.0), ("Turkey", 35.0, 39.0), ("Iran", 54.0, 32.0),
+    ("Ethiopia", 40.0, 9.0), ("Kenya", 37.9, 0.5), ("Nigeria", 8.0, 9.5), ("Algeria", 3.0, 28.0),
+    ("Pakistan", 69.5, 30.0), ("India", 79.0, 22.0), ("Bangladesh", 90.3, 23.8), ("Oman", 56.0, 20.5),
+    ("Yemen", 47.5, 15.7), ("Tunisia", 9.5, 34.0), ("Morocco", -6.5, 32.0),
+], columns=["name", "lon", "lat"])
+
+
+def show_map(points, height=230, zoom=4):
+    dots = pdk.Layer("ScatterplotLayer", data=points, get_position="[lon, lat]", get_radius=12000,
+                     radius_min_pixels=7, get_fill_color=[47, 75, 255, 235], stroked=True,
+                     get_line_color=[255, 255, 255, 255], line_width_min_pixels=2)
+    names = pdk.Layer("TextLayer", data=LABELS, get_position="[lon, lat]", get_text="name", get_size=13,
+                      get_color=[71, 84, 103, 255], get_text_anchor="'middle'",
+                      get_alignment_baseline="'center'")
+    view = pdk.ViewState(latitude=float(points["lat"].mean()), longitude=float(points["lon"].mean()), zoom=zoom)
+    st.pydeck_chart(pdk.Deck(layers=[names, dots], initial_view_state=view, map_provider="carto",
+                             map_style="light_no_labels", height=height), use_container_width=True)
+
+
 def band(p):
     return "low" if p < 0.30 else "moderate" if p < 0.60 else "high"
 
@@ -230,7 +254,7 @@ with tab_one:
         if {"x", "y"} <= set(FEATURES):
             with st.container(border=True):
                 st.markdown("#### Location")
-                st.map(pd.DataFrame({"lat": [values["y"]], "lon": [values["x"]]}), zoom=4, height=230)
+                show_map(pd.DataFrame({"lat": [values["y"]], "lon": [values["x"]]}), 230, 4)
 
 # ------------------------------------------------------------ batch
 with tab_batch:
@@ -271,7 +295,7 @@ with tab_batch:
                 m[2].metric("Moderate", int(cnt.get("moderate", 0)))
                 m[3].metric("Low", int(cnt.get("low", 0)))
                 if {"x", "y"} <= set(out.columns):
-                    st.map(out.rename(columns={"x": "lon", "y": "lat"})[["lat", "lon"]], height=300)
+                    show_map(out.rename(columns={"x": "lon", "y": "lat"})[["lat", "lon"]], 300, 3)
                 st.dataframe(out, use_container_width=True, hide_index=True)
                 st.download_button("Download results", out.to_csv(index=False).encode(),
                                    "lsd_predictions.csv", "text/csv", type="primary", use_container_width=True)
