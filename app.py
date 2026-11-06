@@ -1,5 +1,5 @@
 # ============================================================
-# Lumpy Skin Disease Risk Studio  (v2 - redesigned)
+# LSD Risk Studio - Streamlit (v3)
 # ============================================================
 import json
 from pathlib import Path
@@ -8,12 +8,8 @@ import joblib
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(
-    page_title="LSD Risk Studio",
-    page_icon="🐄",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+st.set_page_config(page_title="LSD Risk Studio", page_icon="🐄", layout="wide",
+                   initial_sidebar_state="collapsed")
 
 BASE = Path(__file__).resolve().parent
 MODEL_PATH = BASE / "models" / "lumpy_skin_model.joblib"
@@ -21,87 +17,84 @@ METRICS_PATH = BASE / "artifacts" / "metrics.json"
 FEATURES_PATH = BASE / "artifacts" / "feature_names.json"
 GITHUB = "https://github.com/AbdelrhmanAkl/lumpy-skin-disease-ml"
 
-# ------------------------------------------------------------
-# Feature metadata: label, min, max, default, step, help
-# ------------------------------------------------------------
+# label, min, max, step, default
 META = {
-    "x": ("Longitude", -180.0, 180.0, 31.0, 0.01, "Decimal degrees, east is positive."),
-    "y": ("Latitude", -90.0, 90.0, 30.8, 0.01, "Decimal degrees, north is positive."),
-    "elevation": ("Elevation (m)", -100.0, 6000.0, 10.0, 1.0, "Metres above sea level."),
-    "dominant_land_cover": ("Land cover class", 0.0, 255.0, 12.0, 1.0, "Land-cover code used in the training data."),
-    "cld": ("Cloud cover (%)", 0.0, 100.0, 20.0, 0.1, "Monthly mean cloud cover."),
-    "dtr": ("Day–night temp. range (°C)", 0.0, 30.0, 13.0, 0.1, "Diurnal temperature range."),
-    "frs": ("Frost days", 0.0, 31.0, 0.0, 0.1, "Days per month with ground frost."),
-    "pet": ("Evapotranspiration (mm/day)", 0.0, 15.0, 3.5, 0.1, "Potential evapotranspiration."),
-    "pre": ("Precipitation (mm/month)", 0.0, 2000.0, 15.0, 1.0, "Monthly precipitation."),
-    "tmn": ("Min. temperature (°C)", -50.0, 45.0, 14.0, 0.1, "Monthly mean of daily minimum."),
-    "tmp": ("Mean temperature (°C)", -50.0, 50.0, 21.0, 0.1, "Monthly mean temperature."),
-    "tmx": ("Max. temperature (°C)", -40.0, 60.0, 28.0, 0.1, "Monthly mean of daily maximum."),
-    "vap": ("Vapour pressure (hPa)", 0.0, 50.0, 14.0, 0.1, "Monthly mean vapour pressure."),
-    "wet": ("Wet days", 0.0, 31.0, 2.0, 0.1, "Days per month with rainfall."),
-    "X5_Ct_2010_Da": ("Cattle density (head/km²)", 0.0, 5000.0, 150.0, 1.0, "Gridded cattle density, 2010."),
-    "X5_Bf_2010_Da": ("Buffalo density (head/km²)", 0.0, 5000.0, 40.0, 1.0, "Gridded buffalo density, 2010."),
+    "x": ("Longitude", -180.0, 180.0, 0.01, 31.0),
+    "y": ("Latitude", -90.0, 90.0, 0.01, 30.8),
+    "elevation": ("Elevation (m)", -100.0, 6000.0, 1.0, 10.0),
+    "dominant_land_cover": ("Land cover class", 0.0, 255.0, 1.0, 12.0),
+    "tmp": ("Mean temperature (°C)", -50.0, 50.0, 0.1, 21.0),
+    "tmn": ("Min temperature (°C)", -50.0, 45.0, 0.1, 14.0),
+    "tmx": ("Max temperature (°C)", -40.0, 60.0, 0.1, 28.0),
+    "dtr": ("Day–night range (°C)", 0.0, 30.0, 0.1, 13.0),
+    "pre": ("Rain (mm/month)", 0.0, 2000.0, 1.0, 15.0),
+    "wet": ("Wet days", 0.0, 31.0, 0.1, 2.0),
+    "cld": ("Cloud cover (%)", 0.0, 100.0, 0.1, 20.0),
+    "vap": ("Vapour pressure (hPa)", 0.0, 50.0, 0.1, 14.0),
+    "pet": ("Evapotranspiration (mm/day)", 0.0, 15.0, 0.1, 3.5),
+    "frs": ("Frost days", 0.0, 31.0, 0.1, 0.0),
+    "X5_Ct_2010_Da": ("Cattle (head/km²)", 0.0, 5000.0, 1.0, 150.0),
+    "X5_Bf_2010_Da": ("Buffalo (head/km²)", 0.0, 5000.0, 1.0, 40.0),
 }
 GROUPS = {
-    "📍 Location": ["x", "y", "elevation", "dominant_land_cover"],
-    "🌦️ Climate": ["tmp", "tmn", "tmx", "dtr", "pre", "wet", "cld", "vap", "pet", "frs"],
-    "🐃 Livestock": ["X5_Ct_2010_Da", "X5_Bf_2010_Da"],
+    "Location": ["x", "y", "elevation", "dominant_land_cover"],
+    "Climate": ["tmp", "tmn", "tmx", "dtr", "pre", "wet", "cld", "vap", "pet", "frs"],
+    "Livestock": ["X5_Ct_2010_Da", "X5_Bf_2010_Da"],
 }
-# Illustrative starting points (not real records) – replace with rows from your dataset.
+# Illustrative examples, replace with real rows from your dataset
 PRESETS = {
-    "Cool & dry highland": dict(x=38.7, y=9.0, elevation=2300, dominant_land_cover=12, tmp=16, tmn=9, tmx=23,
-                                dtr=14, pre=40, wet=4, cld=45, vap=11, pet=3.0, frs=0, X5_Ct_2010_Da=60, X5_Bf_2010_Da=0),
-    "Hot & humid lowland": dict(x=90.4, y=23.8, elevation=8, dominant_land_cover=14, tmp=29, tmn=25, tmx=33,
-                                dtr=8, pre=300, wet=18, cld=70, vap=30, pet=4.2, frs=0, X5_Ct_2010_Da=900, X5_Bf_2010_Da=120),
     "Nile Delta farmland": dict(x=31.0, y=30.8, elevation=10, dominant_land_cover=12, tmp=21, tmn=14, tmx=28,
                                 dtr=13, pre=15, wet=2, cld=20, vap=14, pet=3.5, frs=0, X5_Ct_2010_Da=150, X5_Bf_2010_Da=40),
+    "Cool highland": dict(x=38.7, y=9.0, elevation=2300, dominant_land_cover=12, tmp=16, tmn=9, tmx=23,
+                          dtr=14, pre=40, wet=4, cld=45, vap=11, pet=3.0, frs=0, X5_Ct_2010_Da=60, X5_Bf_2010_Da=0),
+    "Hot humid lowland": dict(x=90.4, y=23.8, elevation=8, dominant_land_cover=14, tmp=29, tmn=25, tmx=33,
+                              dtr=8, pre=300, wet=18, cld=70, vap=30, pet=4.2, frs=0, X5_Ct_2010_Da=900, X5_Bf_2010_Da=120),
 }
 
-# ------------------------------------------------------------
-# Styling
-# ------------------------------------------------------------
-st.markdown(
-    """
+# ------------------------------------------------------------ style
+st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Public+Sans:wght@400;500;600&display=swap');
-:root{--ink:#0e1f1a;--moss:#14532d;--leaf:#16a34a;--amber:#f59e0b;--rose:#e11d48;--mist:#f2f5f3;--line:#dbe3de;}
-html,body,[class*="css"],.stApp{font-family:'Public Sans',sans-serif;color:var(--ink);}
-.stApp{background:var(--mist);}
-h1,h2,h3,h4{font-family:'Bricolage Grotesque',sans-serif!important;letter-spacing:-.02em;}
-.block-container{max-width:1180px;padding-top:1.2rem;padding-bottom:3rem;}
-header[data-testid="stHeader"]{background:transparent;}
-section[data-testid="stSidebar"]{background:var(--ink);}
-section[data-testid="stSidebar"] *{color:#e6efe9;}
-.hero{background:radial-gradient(900px 300px at 85% -20%,#22c55e55,transparent),linear-gradient(135deg,#0e1f1a,#14532d);
- border-radius:24px;padding:2.6rem 2.8rem;color:#fff;margin-bottom:1.4rem;}
-.hero h1{color:#fff;font-size:2.7rem;font-weight:800;margin:0 0 .5rem;line-height:1.05;}
-.hero p{color:#cfe3d6;font-size:1.05rem;max-width:640px;margin:0 0 1.2rem;}
-.pill{display:inline-block;background:#ffffff1c;border:1px solid #ffffff30;color:#fff;border-radius:999px;
- padding:.28rem .8rem;font-size:.82rem;margin:0 .4rem .4rem 0;}
-.stat{background:#fff;border:1px solid var(--line);border-radius:16px;padding:1rem 1.2rem;}
-.stat b{display:block;font-family:'Bricolage Grotesque';font-size:1.9rem;line-height:1.1;}
-.stat span{color:#5b6b63;font-size:.85rem;}
-.result{border-radius:20px;padding:1.6rem 1.8rem;color:#fff;margin:1rem 0;}
-.result h2{color:#fff;margin:0;font-size:2rem;}
-.result p{margin:.3rem 0 0;color:#ffffffe0;}
-.bar{height:14px;border-radius:99px;background:linear-gradient(90deg,#16a34a,#f59e0b 55%,#e11d48);position:relative;margin-top:1rem;}
-.bar i{position:absolute;top:-5px;width:4px;height:24px;background:#fff;border-radius:3px;box-shadow:0 0 0 2px #0e1f1a55;}
-div[data-testid="stTabs"] button{font-weight:600;}
-div[data-testid="stExpander"],div[data-testid="stVerticalBlockBorderWrapper"]{border-radius:16px!important;background:#fff;}
-.stButton>button[kind="primary"]{background:var(--moss);border:0;border-radius:12px;padding:.7rem 1rem;font-weight:700;}
-.stButton>button[kind="primary"]:hover{background:var(--leaf);}
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap');
+:root{--ink:#101828;--mute:#667085;--line:#dde3ec;--brand:#2f4bff;--low:#0e9f8e;--mod:#e8a317;--high:#e5484d;}
+html,body,.stApp,[class*="css"]{font-family:'DM Sans',sans-serif;color:var(--ink);}
+.stApp{background:#eef1f6;}
+h1,h2,h3,h4{font-family:'Sora',sans-serif!important;letter-spacing:-.02em;color:var(--ink);}
+#MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
+header[data-testid="stHeader"]{background:transparent;height:0;}
+.block-container{max-width:1200px;padding-top:1.4rem;padding-bottom:3rem;}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;}
+.brand{display:flex;gap:10px;align-items:center;font:700 1.15rem 'Sora';}
+.logo{width:36px;height:36px;border-radius:11px;background:var(--ink);display:grid;place-items:center;font-size:19px;}
+.topbar a{color:var(--ink);text-decoration:none;font-weight:700;font-size:.85rem;border:1px solid var(--ink);padding:6px 14px;border-radius:99px;}
+.topbar a:hover{background:var(--ink);color:#fff;}
+.hero{background:#101828;border-radius:24px;padding:2.4rem 2.6rem;margin-bottom:1rem;position:relative;overflow:hidden;}
+.hero:after{content:"";position:absolute;right:-80px;top:-80px;width:340px;height:340px;border-radius:50%;
+ background:radial-gradient(circle,#2f4bff88,transparent 70%);}
+.hero h1{color:#fff;font-size:2.5rem;font-weight:800;line-height:1.1;margin:0 0 .7rem;max-width:640px;}
+.hero p{color:#b8c2d6;max-width:560px;margin:0;font-size:1.02rem;}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.2rem;}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:.9rem 1.1rem;}
+.kpi b{display:block;font:800 1.55rem 'Sora';}
+.kpi span{color:var(--mute);font-size:.82rem;}
+div[data-testid="stVerticalBlockBorderWrapper"]{background:#fff;border-radius:18px!important;border-color:var(--line)!important;}
+button[data-baseweb="tab"]{font-weight:700;}
+div[data-baseweb="tab-highlight"]{background:var(--brand)!important;}
+.stButton>button[kind="primary"],.stDownloadButton>button[kind="primary"]{background:var(--brand);border:0;border-radius:12px;font-weight:700;padding:.65rem 1rem;}
+.res{display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:center;}
+.res svg{width:200px;}
+.badge{display:inline-block;color:#fff;border-radius:99px;padding:4px 14px;font-weight:700;font-size:.85rem;}
+.res p{color:var(--mute);margin:.6rem 0 0;font-size:.93rem;}
+.fac{display:grid;grid-template-columns:170px 1fr 28px;gap:8px;align-items:center;font-size:.85rem;margin:7px 0;}
+.trk{height:8px;background:#f0f2f6;border-radius:9px;position:relative;}
+.trk i{position:absolute;top:0;height:8px;border-radius:9px;}
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
-# ------------------------------------------------------------
-# Artifacts
-# ------------------------------------------------------------
+# ------------------------------------------------------------ artifacts
 @st.cache_resource
 def load_model():
     if not MODEL_PATH.exists():
-        st.error(f"Model file not found: {MODEL_PATH}")
+        st.error(f"Model not found: {MODEL_PATH}")
         st.stop()
     return joblib.load(MODEL_PATH)
 
@@ -113,8 +106,8 @@ def load_json(path):
 
 
 model = load_model()
-metrics = load_json(METRICS_PATH)
-FEATURES = load_json(FEATURES_PATH)
+metrics = load_json(str(METRICS_PATH))
+FEATURES = load_json(str(FEATURES_PATH))
 if not FEATURES:
     st.error("feature_names.json not found.")
     st.stop()
@@ -122,135 +115,134 @@ if not FEATURES:
 test = metrics.get("test", {})
 acc, f1, auc = (float(test.get(k, 0)) for k in ("accuracy", "f1", "roc_auc"))
 model_name = metrics.get("model", type(model).__name__)
+COL = {"low": "#0e9f8e", "moderate": "#e8a317", "high": "#e5484d"}
+TXT = {
+    "low": ("Low risk", "Conditions look unfavourable for LSD spread."),
+    "moderate": ("Moderate risk", "Mixed signals. Monitor the herd and re-check with fresh data."),
+    "high": ("High risk", "Conditions resemble past outbreaks. Consider a vet inspection and a vaccination review."),
+}
 
 
-def risk_band(p):
-    if p < 0.30:
-        return "Low risk", "#15803d", "Conditions look unfavourable for LSD spread."
-    if p < 0.60:
-        return "Moderate risk", "#b45309", "Mixed signals. Monitor the herd and re-check with fresh data."
-    return "High risk", "#be123c", "Conditions resemble past LSD outbreaks. Consider a vet inspection and vaccination review."
+def band(p):
+    return "low" if p < 0.30 else "moderate" if p < 0.60 else "high"
 
 
-def predict(df):
-    pred = model.predict(df)
-    prob = model.predict_proba(df)[:, 1] if hasattr(model, "predict_proba") else None
-    return pred, prob
+def contributions(df):
+    try:
+        import xgboost as xgb
+        if hasattr(model, "steps") or not hasattr(model, "get_booster"):
+            return None
+        c = model.get_booster().predict(xgb.DMatrix(df), pred_contribs=True)[0]
+        return dict(zip(FEATURES, map(float, c[:-1])))
+    except Exception:
+        return None
 
 
-# ------------------------------------------------------------
-# Sidebar
-# ------------------------------------------------------------
-with st.sidebar:
-    st.title("🐄 LSD Risk Studio")
-    st.caption("Machine-learning risk screening for lumpy skin disease.")
-    st.divider()
-    st.markdown(f"**Model:** {model_name}")
-    st.markdown(f"**Inputs:** {len(FEATURES)} features")
-    st.markdown(f"[Source code on GitHub]({GITHUB})")
-    st.divider()
-    st.caption("A screening aid, not a veterinary diagnosis.")
+def gauge(p):
+    b = band(p)
+    return f"""<div class="res"><svg viewBox="0 0 200 118">
+<path d="M10 100A90 90 0 0 1 190 100" fill="none" stroke="#eef1f6" stroke-width="18" stroke-linecap="round"/>
+<path d="M10 100A90 90 0 0 1 190 100" fill="none" stroke="{COL[b]}" stroke-width="18" stroke-linecap="round"
+ stroke-dasharray="{max(p, .005) * 283:.1f} 283"/>
+<text x="100" y="98" text-anchor="middle" font-family="Sora" font-weight="800" font-size="32" fill="#101828">{p*100:.1f}%</text></svg>
+<div><span class="badge" style="background:{COL[b]}">{TXT[b][0]}</span><p>{TXT[b][1]}</p></div></div>"""
 
-# ------------------------------------------------------------
-# Hero + KPIs
-# ------------------------------------------------------------
-st.markdown(
-    """
-<div class="hero">
-  <h1>Know your lumpy skin disease risk<br>before it spreads.</h1>
-  <p>Enter a location's climate and livestock data, or upload a whole file, and get an instant risk score from a trained XGBoost model.</p>
-  <span class="pill">⚡ Results in seconds</span><span class="pill">📁 Batch CSV support</span><span class="pill">🗺️ Map view</span>
-</div>
-""",
-    unsafe_allow_html=True,
-)
 
-k = st.columns(4)
-for col, (val, lab) in zip(
-    k,
-    [(f"{acc*100:.1f}%", "Accuracy on unseen data"), (f"{f1*100:.1f}%", "F1 score"),
-     (f"{auc*100:.1f}%", "ROC-AUC"), (model_name, "Model")],
-):
-    col.markdown(f'<div class="stat"><b>{val}</b><span>{lab}</span></div>', unsafe_allow_html=True)
+# ------------------------------------------------------------ header
+st.markdown(f"""
+<div class="topbar"><div class="brand"><div class="logo">🐄</div>LSD Risk Studio</div>
+<a href="{GITHUB}" target="_blank">GitHub</a></div>
+<div class="hero"><h1>Check lumpy skin disease risk for any location.</h1>
+<p>Set the climate and livestock conditions, and get an instant risk score from a trained {model_name} model.</p></div>
+<div class="kpis">
+<div class="kpi"><b>{acc*100:.1f}%</b><span>Accuracy on unseen data</span></div>
+<div class="kpi"><b>{f1*100:.1f}%</b><span>F1 score</span></div>
+<div class="kpi"><b>{auc*100:.1f}%</b><span>ROC-AUC</span></div>
+<div class="kpi"><b>{len(FEATURES)}</b><span>Input features</span></div></div>
+""", unsafe_allow_html=True)
 
-st.write("")
-tab_one, tab_batch, tab_about = st.tabs(["🔍 Check a location", "📁 Check a file", "ℹ️ How it works"])
+tab_one, tab_batch, tab_about = st.tabs(["Check a location", "Check a file", "How it works"])
 
-# ------------------------------------------------------------
-# Single prediction
-# ------------------------------------------------------------
+# ------------------------------------------------------------ single
 with tab_one:
     for f in FEATURES:
-        st.session_state.setdefault(f"in_{f}", float(META[f][3]) if f in META else 0.0)
+        st.session_state.setdefault(f"in_{f}", float(META[f][4]) if f in META else 0.0)
 
-    left, right = st.columns([1.05, 1], gap="large")
+    def apply_preset():
+        name = st.session_state["preset"]
+        if name in PRESETS:
+            for k, v in PRESETS[name].items():
+                st.session_state[f"in_{k}"] = float(v)
+
+    left, right = st.columns([1.1, 1], gap="large")
 
     with left:
-        st.subheader("1 · Choose a starting point")
-        chosen = st.radio("Starting point", list(PRESETS) + ["Start from my own values"],
-                          horizontal=True, label_visibility="collapsed")
-        if chosen in PRESETS and st.session_state.get("_preset") != chosen:
-            for f, v in PRESETS[chosen].items():
-                st.session_state[f"in_{f}"] = float(v)
-            st.session_state["_preset"] = chosen
-        elif chosen not in PRESETS:
-            st.session_state["_preset"] = chosen
-        st.caption("Presets are illustrative examples. Edit any value below.")
-
-        st.subheader("2 · Adjust the values")
-        for group, feats in GROUPS.items():
-            with st.expander(group, expanded=(group.startswith("📍"))):
+        with st.container(border=True):
+            st.selectbox("Start from an example", ["Custom values"] + list(PRESETS),
+                         key="preset", on_change=apply_preset,
+                         help="Examples are illustrative. Edit any value afterwards.")
+            for group, feats in GROUPS.items():
+                feats = [f for f in feats if f in FEATURES]
+                if not feats:
+                    continue
+                st.markdown(f"#### {group}")
                 cols = st.columns(2)
-                for i, f in enumerate([f for f in feats if f in FEATURES]):
-                    lab, lo, hi, _, step, hlp = META[f]
-                    cols[i % 2].number_input(lab, min_value=lo, max_value=hi, step=step,
-                                             key=f"in_{f}", help=hlp)
+                for i, f in enumerate(feats):
+                    lab, lo, hi, step, _ = META[f]
+                    with cols[i % 2]:
+                        if group == "Location":
+                            st.number_input(lab, lo, hi, step=step, key=f"in_{f}")
+                        else:
+                            st.slider(lab, lo, hi, step=step, key=f"in_{f}")
 
-        go = st.button("Calculate risk", type="primary", use_container_width=True)
+    values = {f: float(st.session_state[f"in_{f}"]) for f in FEATURES}
+    row = pd.DataFrame([[values[f] for f in FEATURES]], columns=FEATURES)
 
     with right:
-        st.subheader("3 · Your result")
-        if go:
-            row = pd.DataFrame([[st.session_state[f"in_{f}"] for f in FEATURES]], columns=FEATURES)
-            try:
-                pred, prob = predict(row)
-            except Exception as e:
-                st.error("The model could not score these values.")
-                st.exception(e)
-                st.stop()
-            p = float(prob[0]) if prob is not None else float(pred[0])
-            title, color, advice = risk_band(p)
-            st.markdown(
-                f'<div class="result" style="background:{color}"><p>Estimated risk</p>'
-                f'<h2>{p*100:.1f}% · {title}</h2><p>{advice}</p>'
-                f'<div class="bar"><i style="left:calc({p*100:.1f}% - 2px)"></i></div></div>',
-                unsafe_allow_html=True,
-            )
-            c1, c2 = st.columns(2)
-            c1.metric("Healthy probability", f"{(1-p)*100:.1f}%")
-            c2.metric("LSD probability", f"{p*100:.1f}%")
-            st.map(pd.DataFrame({"lat": [row["y"][0]], "lon": [row["x"][0]]}) if {"x", "y"} <= set(FEATURES) else None,
-                   zoom=4, height=240)
-        else:
-            st.info("Pick a starting point, adjust the values, then press **Calculate risk**.")
+        try:
+            p = float(model.predict_proba(row)[0, 1])
+        except Exception as e:
+            st.error("The model could not score these values.")
+            st.exception(e)
+            st.stop()
 
-        if hasattr(model, "feature_importances_"):
-            with st.expander("What drives the model overall?"):
-                imp = pd.Series(model.feature_importances_, index=[META.get(f, (f,))[0] for f in FEATURES])
-                st.bar_chart(imp.sort_values(), horizontal=True)
+        with st.container(border=True):
+            st.markdown("#### Estimated risk")
+            st.markdown(gauge(p), unsafe_allow_html=True)
 
-# ------------------------------------------------------------
-# Batch
-# ------------------------------------------------------------
+        contrib = contributions(row)
+        if contrib:
+            with st.container(border=True):
+                st.markdown("#### What pushes this score")
+                top = sorted(contrib.items(), key=lambda kv: abs(kv[1]), reverse=True)[:6]
+                mx = max(abs(v) for _, v in top) or 1
+                html = ""
+                for k, v in top:
+                    w = abs(v) / mx * 50
+                    up = v > 0
+                    pos = "left:50%" if up else f"left:{50 - w}%"
+                    html += (f'<div class="fac"><span>{META.get(k, (k,))[0]}</span>'
+                             f'<div class="trk"><i style="background:{COL["high"] if up else COL["low"]};width:{w}%;{pos}"></i></div>'
+                             f'<span style="color:{COL["high"] if up else COL["low"]}">{"▲" if up else "▼"}</span></div>')
+                st.markdown(html + '<div style="font-size:.78rem;color:#667085">▲ raises risk · ▼ lowers risk</div>',
+                            unsafe_allow_html=True)
+
+        if {"x", "y"} <= set(FEATURES):
+            with st.container(border=True):
+                st.markdown("#### Location")
+                st.map(pd.DataFrame({"lat": [values["y"]], "lon": [values["x"]]}), zoom=4, height=230)
+
+# ------------------------------------------------------------ batch
 with tab_batch:
-    st.subheader("Score many locations at once")
-    c1, c2 = st.columns([2, 1])
-    c1.write("Upload a CSV with one row per location. Not sure about the format? Download the template.")
-    template = pd.DataFrame([PRESETS["Nile Delta farmland"]]).reindex(columns=FEATURES)
-    c2.download_button("⬇️ CSV template", template.to_csv(index=False).encode(), "lsd_template.csv",
-                       "text/csv", use_container_width=True)
+    with st.container(border=True):
+        c1, c2 = st.columns([3, 1])
+        c1.markdown("#### Score many locations at once")
+        c1.caption("Upload a CSV with one row per location.")
+        tpl = pd.DataFrame([PRESETS["Nile Delta farmland"]]).reindex(columns=FEATURES, fill_value=0)
+        c2.download_button("Download template", tpl.to_csv(index=False).encode(), "lsd_template.csv",
+                           "text/csv", use_container_width=True)
+        up = st.file_uploader("Drop your CSV here", type=["csv"], label_visibility="collapsed")
 
-    up = st.file_uploader("Drop your CSV here", type=["csv"])
     if up:
         try:
             df = pd.read_csv(up)
@@ -258,7 +250,6 @@ with tab_batch:
             st.error("This file could not be read as CSV.")
             st.exception(e)
             st.stop()
-
         missing = [f for f in FEATURES if f not in df.columns]
         if missing:
             st.error("Missing columns: " + ", ".join(missing))
@@ -268,54 +259,39 @@ with tab_batch:
             if bad:
                 st.error(f"{bad} row(s) have empty or non-numeric values. Fix them and upload again.")
             else:
-                pred, prob = predict(X)
+                prob = model.predict_proba(X)[:, 1]
                 out = df.copy()
-                if prob is not None:
-                    out["risk_percent"] = (prob * 100).round(2)
-                    out["risk_level"] = [risk_band(p)[0] for p in prob]
-                out["prediction"] = pred
+                out["risk_percent"] = (prob * 100).round(2)
+                out["risk_level"] = [band(float(v)) for v in prob]
                 n = len(out)
-                hi = int((pred == 1).sum())
-                m = st.columns(3)
+                cnt = out["risk_level"].value_counts()
+                m = st.columns(4)
                 m[0].metric("Locations", n)
-                m[1].metric("Flagged as LSD", hi)
-                m[2].metric("Flagged share", f"{hi/n*100:.1f}%")
+                m[1].metric("High", int(cnt.get("high", 0)))
+                m[2].metric("Moderate", int(cnt.get("moderate", 0)))
+                m[3].metric("Low", int(cnt.get("low", 0)))
                 if {"x", "y"} <= set(out.columns):
                     st.map(out.rename(columns={"x": "lon", "y": "lat"})[["lat", "lon"]], height=300)
                 st.dataframe(out, use_container_width=True, hide_index=True)
-                st.download_button("⬇️ Download results", out.to_csv(index=False).encode(),
-                                   "lsd_predictions.csv", "text/csv", use_container_width=True, type="primary")
+                st.download_button("Download results", out.to_csv(index=False).encode(),
+                                   "lsd_predictions.csv", "text/csv", type="primary", use_container_width=True)
 
-# ------------------------------------------------------------
-# About
-# ------------------------------------------------------------
+# ------------------------------------------------------------ about
 with tab_about:
     a, b = st.columns(2, gap="large")
     with a:
-        st.subheader("How it works")
-        st.markdown(
-            f"""
-1. You provide **{len(FEATURES)} inputs**: location, climate, terrain and livestock density.
-2. A **{model_name}** classifier trained on historical records scores the conditions.
-3. You get a **risk percentage** and a plain-language level: low, moderate or high.
-"""
-        )
-        st.subheader("Risk levels")
-        st.success("Low: below 30%")
-        st.warning("Moderate: 30% to 60%")
-        st.error("High: above 60%")
+        with st.container(border=True):
+            st.markdown("#### How it works")
+            st.markdown(f"1. You provide **{len(FEATURES)} inputs**: location, climate, terrain and livestock density.\n"
+                        f"2. A trained **{model_name}** model scores how closely they resemble past LSD records.\n"
+                        "3. You get a **risk percentage** and a plain level.")
+            st.markdown("**Levels:** 🟢 low below 30% · 🟠 moderate 30–60% · 🔴 high above 60%")
     with b:
-        st.subheader("Good to know")
-        st.markdown(
-            """
-- The tool scores **environmental conditions**. It does not examine animals.
-- Results are a screening aid. Confirm suspected cases with a veterinarian.
-- Accuracy is measured on held-out data and may differ in regions far from the training data.
-"""
-        )
-        st.subheader("Tech stack")
-        st.markdown("Python · scikit-learn · XGBoost · pandas · Streamlit")
-        st.link_button("View the code on GitHub", GITHUB)
+        with st.container(border=True):
+            st.markdown("#### Good to know")
+            st.markdown("- The tool scores **environmental conditions**. It does not examine animals.\n"
+                        "- It is a screening aid. Confirm suspected cases with a veterinarian.\n"
+                        "- Accuracy was measured on held-out data and may be lower far from the training regions.")
+            st.link_button("View code on GitHub", GITHUB)
 
-st.divider()
-st.caption("LSD Risk Studio · Built by Abdelrahman Akl")
+st.caption("LSD Risk Studio · Built by Abdelrhman Akl")
