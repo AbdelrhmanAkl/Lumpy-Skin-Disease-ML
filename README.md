@@ -1,416 +1,223 @@
-# Lumpy Skin Disease AI
+<div align="center">
 
-> A professional machine learning application for binary classification of Lumpy Skin Disease (LSD) risk using environmental, geographic, and livestock-related features.
+# LSD Risk Studio
 
-## 🚀 Live Demo
+**Machine-learning risk screening for Lumpy Skin Disease (LSD), built on climate, terrain and livestock-density data.**
 
-👉 **[Try the Lumpy Skin Disease AI Live Demo](https://lumpy-skin-disease-ml.streamlit.app/)**
+[**Live demo**](https://lumpy-skin-disease-ml.streamlit.app/) · [Report an issue](https://github.com/AbdelrhmanAkl/lumpy-skin-disease-ml/issues)
 
-The application is deployed using Streamlit and provides an interactive interface for making Lumpy Skin Disease predictions.
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![XGBoost](https://img.shields.io/badge/Model-XGBoost-2f4bff)](https://xgboost.readthedocs.io/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Status](https://img.shields.io/badge/Status-Live-0e9f8e)](https://lumpy-skin-disease-ml.streamlit.app/)
 
+<img src="docs/screenshots/hero.png" alt="LSD Risk Studio" width="900">
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-App-red.svg)](https://streamlit.io/)
-[![XGBoost](https://img.shields.io/badge/Model-XGBoost-green.svg)](https://xgboost.readthedocs.io/)
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-orange.svg)](https://scikit-learn.org/)
-
----
-
-## Overview
-
-**Lumpy Skin Disease AI** is a machine learning project designed to classify the risk of Lumpy Skin Disease using a trained binary classification model.
-
-The project combines:
-
-- Geographic information
-- Climate and environmental variables
-- Elevation and land-cover information
-- Cattle density
-- Buffalo density
-
-The trained model is integrated into a **Streamlit web application** that provides real-time predictions, prediction probabilities, batch CSV analysis, model information, and performance metrics.
-
-> **Important:** This application is an AI/ML decision-support prototype for educational and research purposes. It is **not a veterinary diagnostic system** and should not replace professional veterinary assessment.
+</div>
 
 ---
 
-## Key Features
+## Why this project
 
-### Single Prediction
-Enter the 16 required input features and receive:
+Lumpy Skin Disease is a viral cattle disease that spreads with climate, insect vectors and animal density. Surveillance teams need a fast way to ask: *do the conditions at this location look like places where outbreaks have happened?*
 
-- Predicted class
-- Healthy / Lumpy Skin Disease classification
-- Prediction probability
-- Model-based risk indication
+LSD Risk Studio answers that question in seconds. You enter a location's conditions, or upload a file with many locations, and get a risk percentage with a plain-language level.
 
-### Batch CSV Analysis
-Upload a CSV file containing multiple observations to:
+> **Important:** This is a decision-support prototype for education, research and portfolio use. It is **not** a veterinary diagnostic tool. See [Responsible use](#responsible-use).
 
-- Run predictions for all rows
-- Generate prediction probabilities
-- Review the results
-- Export predictions as a CSV file
+---
 
-### Model Performance Dashboard
-The application displays the final model's test-set performance:
+## Highlights
+
+| | |
+|---|---|
+| **Live risk score** | The score updates as you change any input. No submit button. |
+| **Three risk levels** | Low (below 30%), Moderate (30–60%), High (above 60%), each with a short recommendation. |
+| **Explainable output** | Shows the top factors that raised or lowered the score for that specific input (XGBoost SHAP-style contributions). |
+| **Example locations** | One-click starting points so a new user is never staring at empty fields. |
+| **Batch analysis** | Upload a CSV, get a risk score per row, see locations on a map, download the results. |
+| **CSV template** | Download a ready-made file with the correct columns. |
+| **Validated input** | Clear messages for missing columns and empty or non-numeric values. |
+
+<div align="center">
+<img src="docs/screenshots/single.png" alt="Single location check" width="900">
+</div>
+
+---
+
+## Model performance
+
+Evaluated once on a held-out test set that was not used for model selection.
 
 | Metric | Score |
 |---|---:|
 | Accuracy | **98.15%** |
-| F1 Score | **92.36%** |
+| F1 score | **92.36%** |
 | ROC-AUC | **99.30%** |
 
-### Model Information
-The application also provides information about:
+The gap between accuracy and F1 suggests the classes are imbalanced, so F1 and ROC-AUC are the more informative numbers. See [Limitations](#limitations) for how to read these results.
 
-- The selected machine learning model
-- Input features
-- Dataset and target definition
-- Prediction workflow
-- Project limitations
+<div align="center">
+<img src="artifacts/confusion_matrix.png" alt="Confusion matrix" width="420">
+</div>
 
 ---
 
-## Machine Learning Problem
+## The machine-learning task
 
-### Task
+- **Type:** binary classification
+- **Target:** `0` Healthy, `1` Lumpy Skin Disease
+- **Final model:** XGBoost, stored in `models/lumpy_skin_model.joblib`
+- **Inputs:** 16 numerical features, in a fixed order
 
-Binary classification:
+### Input features
 
-- `0` → Healthy
-- `1` → Lumpy Skin Disease
+| Group | Feature | Meaning |
+|---|---|---|
+| Location | `x` | Longitude |
+| | `y` | Latitude |
+| | `elevation` | Elevation above sea level |
+| | `dominant_land_cover` | Land-cover class code |
+| Climate | `tmp`, `tmn`, `tmx` | Mean, minimum and maximum temperature |
+| | `dtr` | Diurnal temperature range |
+| | `pre` | Precipitation |
+| | `wet` | Wet days |
+| | `cld` | Cloud cover |
+| | `vap` | Vapour pressure |
+| | `pet` | Potential evapotranspiration |
+| | `frs` | Frost days |
+| Livestock | `X5_Ct_2010_Da` | Cattle density |
+| | `X5_Bf_2010_Da` | Buffalo density |
 
-### Final Model
+The model expects these exact names and this exact order. The order is stored in `artifacts/feature_names.json` and loaded by the app.
 
-**XGBoost**
+---
 
-The application uses the real trained model stored in:
+## Evaluation workflow
 
 ```text
-models/lumpy_skin_model.joblib
+Dataset → Preparation → Train / Validation / Test split
+                              │
+                 Validation ──┴── Model selection
+                                        │
+                              Final test evaluation (once)
+                                        │
+                                 Saved model + metrics
+                                        │
+                                  Streamlit app
 ```
 
-Predictions are generated from the same 16-feature input structure used by the trained model.
+The test set stays untouched during model and hyperparameter selection. After selection, the model may be refit on train + validation with the chosen hyperparameters and evaluated once on the test set.
 
 ---
 
-## Input Features
+## Using the app
 
-The final model uses the following **16 numerical features** in this exact order:
+### Check a location
+1. Pick an example location or choose **Custom values**.
+2. Adjust location, climate and livestock values.
+3. Read the risk gauge, the risk level and the factors behind the score.
 
-| Feature | Description |
-|---|---|
-| `x` | Longitude |
-| `y` | Latitude |
-| `cld` | Cloud Cover |
-| `dtr` | Diurnal Temperature Range |
-| `frs` | Frost Days |
-| `pet` | Potential Evapotranspiration |
-| `pre` | Precipitation |
-| `tmn` | Minimum Temperature |
-| `tmp` | Mean Temperature |
-| `tmx` | Maximum Temperature |
-| `vap` | Vapor Pressure |
-| `wet` | Wet Days |
-| `elevation` | Elevation |
-| `dominant_land_cover` | Dominant Land Cover |
-| `X5_Ct_2010_Da` | Cattle Density |
-| `X5_Bf_2010_Da` | Buffalo Density |
+### Check a file
+1. Download the CSV template.
+2. Fill in one row per location with all 16 features.
+3. Upload it, review the summary and the map, then download the results.
 
-Maintaining the feature names and feature order is important because the trained model expects this exact input structure.
+Output columns added to your file: `risk_percent` and `risk_level`.
 
 ---
 
-## Project Architecture
+## Project structure
 
 ```text
 lumpy-skin-disease-ml/
-│
-├── app.py
-├── train.py
-├── predict.py
+├── app.py                  # Streamlit application
+├── train.py                # Training and evaluation pipeline
+├── predict.py              # Prediction utilities
 ├── requirements.txt
-├── README.md
-├── .gitignore
-│
 ├── data/
 │   └── Lumpy skin disease data.csv
-│
 ├── models/
 │   └── lumpy_skin_model.joblib
-│
 ├── artifacts/
 │   ├── metrics.json
 │   ├── feature_names.json
 │   └── confusion_matrix.png
-│
 ├── notebooks/
 │   └── Final_Project_Lumpy_Skin_Disease_data_Classification__.ipynb
-│
+├── docs/
+│   └── screenshots/
 └── .streamlit/
     └── config.toml
 ```
 
-### Main Files
-
-**`app.py`**  
-Streamlit application containing the production-style user interface and prediction workflow.
-
-**`train.py`**  
-Training pipeline used to train and evaluate the machine learning models.
-
-**`predict.py`**  
-Prediction utilities used by the application.
-
-**`models/lumpy_skin_model.joblib`**  
-Serialized trained XGBoost model used for real predictions.
-
-**`artifacts/metrics.json`**  
-Stored model-performance metrics used by the dashboard.
-
-**`artifacts/feature_names.json`**  
-Stores the expected model input features.
-
-**`artifacts/confusion_matrix.png`**  
-Visualization of the final classification results.
-
-**`notebooks/`**  
-Contains the project development and experimentation notebook.
-
 ---
 
-## ML Workflow
-
-The intended professional evaluation workflow is:
-
-```text
-Dataset
-   │
-   ▼
-Data Preparation
-   │
-   ▼
-Train / Validation / Test Split
-   │
-   ├──────────────► Validation
-   │                  │
-   │                  ▼
-   │            Model Selection
-   │
-   ▼
-Selected Model
-   │
-   ▼
-Final Test Evaluation
-   │
-   ▼
-Saved Trained Model
-   │
-   ▼
-Streamlit Application
-```
-
-### Important Evaluation Principle
-
-The **test set should remain untouched during model selection**.
-
-Model and hyperparameter decisions should be made using the training and validation data. The held-out test set is reserved for the final evaluation.
-
-If the selected model is refit after selection, the professional approach is to optionally train it on **train + validation** using the already-selected hyperparameters and then evaluate it once on the untouched test set.
-
-This separation helps reduce the risk of test-set leakage and provides a more reliable estimate of final model performance.
-
----
-
-## Running the Project Locally
-
-### 1. Clone the repository
+## Run it locally
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone https://github.com/AbdelrhmanAkl/lumpy-skin-disease-ml.git
 cd lumpy-skin-disease-ml
-```
 
-### 2. Create a virtual environment
-
-Windows:
-
-```bash
 python -m venv .venv
-.venv\Scripts\activate
-```
+# Windows:      .venv\Scripts\activate
+# macOS/Linux:  source .venv/bin/activate
 
-macOS / Linux:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 3. Install dependencies
-
-```bash
 pip install -r requirements.txt
-```
-
-### 4. Start the Streamlit application
-
-```bash
 streamlit run app.py
 ```
 
-The application will open in your browser.
+Use the same `scikit-learn` and `xgboost` versions that were used for training, otherwise the saved model may fail to load.
+
+### Retrain the model
+
+```bash
+python train.py
+```
+
+This regenerates `models/lumpy_skin_model.joblib` and the files in `artifacts/`. When retraining, keep the target definition, feature names, feature order and split methodology consistent with the app.
 
 ---
 
-## Streamlit Application
+## Tech stack
 
-The application is organized into three main sections:
-
-### 1. Single Prediction
-
-A user enters the required feature values and receives a prediction with its probability.
-
-### 2. Batch CSV Analysis
-
-A user uploads a CSV containing the required model features. The application processes the rows and allows the prediction results to be exported.
-
-### 3. About Model
-
-Provides project information, model details, dataset information, features, and the project's limitations.
+Python · pandas · NumPy · scikit-learn · XGBoost · joblib · Streamlit · Matplotlib · Jupyter
 
 ---
 
-## Model Performance
+## Limitations
 
-The current application displays the following final test metrics:
+- **Environmental conditions, not animals.** The model scores places, not individual cattle.
+- **Class imbalance.** Accuracy alone can look better than real-world performance.
+- **Spatial leakage risk.** Nearby locations in the dataset share similar conditions. A random split can overestimate performance on new regions, so geographic cross-validation is needed before trusting the scores elsewhere.
+- **Static livestock data.** Cattle and buffalo densities are from 2010.
+- **Uncalibrated probabilities.** The percentage is a model score, not a calibrated chance of infection.
+- **Illustrative examples.** The example locations in the app are not real surveillance records.
 
-- **Accuracy:** 98.15%
-- **F1 Score:** 92.36%
-- **ROC-AUC:** 99.30%
+## Responsible use
 
-These values are presented as the project's current reported final evaluation metrics.
+Intended for academic demonstration, machine-learning research, portfolio development and decision-support experiments.
 
-Performance should always be interpreted together with the dataset characteristics, class distribution, validation methodology, and real-world clinical/veterinary requirements.
+It must not replace veterinary diagnosis, laboratory testing, professional epidemiological assessment or official animal-health guidance.
 
----
+## Roadmap
 
-## Technology Stack
-
-- **Python**
-- **Pandas**
-- **NumPy**
-- **Scikit-learn**
-- **XGBoost**
-- **Joblib**
-- **Streamlit**
-- **Matplotlib**
-- **Jupyter Notebook**
-
----
-
-## Reproducibility
-
-The repository contains the trained model and the artifacts required by the Streamlit application.
-
-For a complete training/retraining workflow, use the provided training script and notebook together with the project dataset.
-
-When retraining or modifying the model, keep the following consistent:
-
-1. Target definition
-2. Feature names
-3. Feature order
-4. Train/validation/test methodology
-5. Model-selection procedure
-6. Prediction pipeline
-7. Stored model artifacts
-
----
-
-## Responsible Use
-
-Lumpy Skin Disease is a veterinary disease, and machine learning predictions should not be treated as definitive diagnoses.
-
-This project is intended for:
-
-- Academic demonstration
-- Machine learning research
-- Portfolio development
-- Decision-support experimentation
-
-It should **not** be used as a substitute for:
-
-- Veterinary diagnosis
-- Laboratory testing
-- Professional epidemiological assessment
-- Official animal-health guidance
-
----
-
-## Future Improvements
-
-Possible future development areas include:
-
-- More robust external validation
-- Geographic cross-validation
-- Model calibration
-- Explainable AI / feature-level interpretation
-- Better handling of class imbalance
-- Larger and more diverse datasets
-- Model monitoring after deployment
-- Automated data validation
-- More detailed risk visualization
-- API-based deployment
+- [ ] Geographic cross-validation and external validation
+- [ ] Probability calibration
+- [ ] Automatic climate and elevation lookup from a map click
+- [ ] Per-prediction SHAP explanations for any model type
+- [ ] FastAPI backend with a custom web frontend
+- [ ] Automated input-data validation and drift monitoring
 
 ---
 
 ## Author
 
-**Abdelrahman Akl**
+**Abdelrahman Akl** · Machine Learning / AI
 
-Machine Learning / AI Project
-
----
+[GitHub](https://github.com/AbdelrhmanAkl)
 
 ## License
 
-This project is intended primarily for educational, academic, and portfolio purposes.
-
-Add the appropriate license here if the repository is intended for public reuse.
-
----
-
-## Deployment
-
-The application is designed to be deployed as a Streamlit web application.
-
-Recommended deployment flow:
-
-```text
-Local Project
-     │
-     ▼
-GitHub Repository
-     │
-     ▼
-Streamlit Deployment
-     │
-     ▼
-Live Demo
-```
-
-
-## 🚀 Live Demo
-
-👉 **[Try the Lumpy Skin Disease AI Live Demo](https://lumpy-skin-disease-ml.streamlit.app/)**
-
-The application is deployed using Streamlit and provides an interactive interface for making Lumpy Skin Disease predictions.
-
-## 📦 Local Setup
-
-Clone the repository:
-
-```bash
-git clone https://github.com/AbdelrhmanAkl/lumpy-skin-disease-ml.git
-cd lumpy-skin-disease-ml
+Released for educational, academic and portfolio purposes. Add a license file (for example MIT) if you want others to reuse the code.
